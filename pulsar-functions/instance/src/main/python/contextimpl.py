@@ -152,7 +152,7 @@ class ContextImpl(pulsar.Context):
     if callback:
       callback(result, msg)
 
-  def publish(self, topic_name, message, serde_class_name="serde.IdentitySerDe", properties=None, compression_type=None, callback=None, message_conf=None):
+  def publish(self, topic_name, message, schema=None, serde_class_name="serde.IdentitySerDe", properties=None, compression_type=None, callback=None, message_conf=None):
     # Just make sure that user supplied values are properly typed
     topic_name = str(topic_name)
     serde_class_name = str(serde_class_name)
@@ -162,6 +162,7 @@ class ContextImpl(pulsar.Context):
     if topic_name not in self.publish_producers:
       self.publish_producers[topic_name] = self.pulsar_client.create_producer(
         topic_name,
+        schema=schema,
         block_if_queue_full=True,
         batching_enabled=True,
         batching_max_publish_delay_ms=10,
@@ -177,7 +178,7 @@ class ContextImpl(pulsar.Context):
       serde_klass = util.import_class(self.user_code_dir, serde_class_name)
       self.publish_serializers[serde_class_name] = serde_klass()
 
-    output_bytes = bytes(self.publish_serializers[serde_class_name].serialize(message))
+    output = self.publish_serializers[serde_class_name].serialize(message)
 
     if properties:
       # The deprecated properties args was passed. Need to merge into message_conf
@@ -187,10 +188,10 @@ class ContextImpl(pulsar.Context):
 
     if message_conf:
       self.publish_producers[topic_name].send_async(
-        output_bytes, partial(self.callback_wrapper, callback, topic_name, self.get_message_id()), **message_conf)
+        output, partial(self.callback_wrapper, callback, topic_name, self.get_message_id()), **message_conf)
     else:
       self.publish_producers[topic_name].send_async(
-        output_bytes, partial(self.callback_wrapper, callback, topic_name, self.get_message_id()))
+        output, partial(self.callback_wrapper, callback, topic_name, self.get_message_id()))
 
   def ack(self, msgid, topic):
     topic_consumer = None

@@ -80,7 +80,8 @@ class Record(with_metaclass(RecordMeta, object)):
             'fields': []
         }
 
-        for name in sorted(cls._fields.keys()):
+        sorted_fields = OrderedDict(sorted(cls._fields.items(), key=lambda x: x[1].position()))
+        for name in sorted_fields:
             field = cls._fields[name]
             field_type = field.schema() if field._required else ['null', field.schema()]
             schema['fields'].append({
@@ -108,9 +109,10 @@ class Record(with_metaclass(RecordMeta, object)):
 
 
 class Field(object):
-    def __init__(self, default=None, required=False):
+    def __init__(self, default=None, required=False, position=0):
         self._default = default
         self._required = required
+        self._position = position
 
     @abstractmethod
     def type(self):
@@ -122,6 +124,9 @@ class Field(object):
 
     def default(self):
         return self._default
+
+    def position(self):
+        return self._position
 
 # All types
 
@@ -198,8 +203,8 @@ class Array(Field):
     def schema(self):
         return {
             'type': self.type(),
-            'items': self.array_type.schema() if isinstance(self.array_type, Record) 
-                else self.array_type.type()
+            'items': self.array_type.schema() if isinstance(self.array_type, Record)
+            else self.array_type.type()
         }
 
 
@@ -216,5 +221,5 @@ class Map(Field):
         return {
             'type': self.type(),
             'values': self.value_type.schema() if isinstance(self.value_type, Record)
-                else self.value_type.type()
+            else self.value_type.type()
         }
